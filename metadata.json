@@ -1,0 +1,5 @@
+{
+  "name": "NSW Property Manager",
+  "description": "A comprehensive property management application for managing houses, shops, and land. Features include financial tracking, document management, and bilingual support for English and Bengali. All data is stored locally in your browser.",
+  "requestFramePermissions": []
+}
