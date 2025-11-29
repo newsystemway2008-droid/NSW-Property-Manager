@@ -8,7 +8,7 @@ import { ChevronLeftIcon, PencilIcon, TrashIcon, MapPinIcon, BuildingOfficeIcon,
 import PropertyFormModal from '../components/PropertyFormModal';
 import Lightbox from '../components/Lightbox';
 import DocumentUploadModal from '../components/DocumentUploadModal';
-// FIX: Import `deleteFiles` to handle batch file deletion.
+// FIX: Import `getFile`, `deleteFile` and `deleteFiles` to handle batch file deletion from IndexedDB.
 import { getFile, deleteFile, deleteFiles } from '../utils/db';
 
 
@@ -28,6 +28,33 @@ const StatCard: React.FC<{ icon: React.ReactNode; label: string; value: string; 
         </div>
     </div>
 );
+
+// FIX: Added a helper component to asynchronously load and display an image from IndexedDB.
+const ImageFromDb: React.FC<{ fileId: string; alt: string; className: string }> = ({ fileId, alt, className }) => {
+    const [imageUrl, setImageUrl] = useState<string>('https://via.placeholder.com/600x300');
+
+    useEffect(() => {
+        let isMounted = true;
+        let objectUrl: string | undefined;
+
+        const fetchImage = async () => {
+            const file = await getFile(fileId);
+            if (isMounted && file) {
+                objectUrl = URL.createObjectURL(file);
+                setImageUrl(objectUrl);
+            }
+        };
+        fetchImage();
+        return () => { 
+            isMounted = false; 
+            if (objectUrl) {
+                URL.revokeObjectURL(objectUrl);
+            }
+        };
+    }, [fileId]);
+
+    return <img src={imageUrl} alt={alt} className={className} />;
+};
 
 const PropertyDetails: React.FC<PropertyDetailsProps> = ({ propertyId, setView }) => {
     const { properties, transactions, setProperties, documents, setDocuments, tenants, setTenants } = useData();
@@ -84,9 +111,11 @@ const PropertyDetails: React.FC<PropertyDetailsProps> = ({ propertyId, setView }
         if (file) {
             const url = URL.createObjectURL(file);
             if (file.type.startsWith('image/')) {
+                // For a single image doc, we still use lightbox. Revoke URL on close.
                 setLightboxImages([url]);
             } else {
                 window.open(url, '_blank');
+                // For non-image files opened in a new tab, we can't reliably revoke, but it's less critical.
             }
         }
     };
@@ -151,6 +180,21 @@ const PropertyDetails: React.FC<PropertyDetailsProps> = ({ propertyId, setView }
         }
     };
     
+    // FIX: Added function to load all property images from IndexedDB for the lightbox.
+    const openLightbox = async () => {
+        if (property?.photoFileIds && property.photoFileIds.length > 0) {
+            const files = await Promise.all(property.photoFileIds.map(id => getFile(id)));
+            const urls = files.filter((file): file is File => !!file).map(file => URL.createObjectURL(file));
+            setLightboxImages(urls);
+        }
+    };
+
+    // FIX: Added function to revoke object URLs to prevent memory leaks when closing the lightbox.
+    const closeLightbox = () => {
+        lightboxImages.forEach(url => URL.revokeObjectURL(url));
+        setLightboxImages([]);
+    };
+
     const renderContent = () => {
         // ... (render logic for income, expense, documents)
         if (activeTab === 'tenant') {
@@ -245,9 +289,9 @@ const PropertyDetails: React.FC<PropertyDetailsProps> = ({ propertyId, setView }
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-2">
-                                            <button onClick={() => handleViewDocument(doc)} className="p-1.5 text-gray-500 hover:text-primary-600"><EyeIcon className="w-5 h-5"/></button>
-                                            <button onClick={() => handleDownloadDocument(doc)} className="p-1.5 text-gray-500 hover:text-primary-600"><ArrowDownTrayIcon className="w-5 h-5"/></button>
-                                            <button onClick={() => handleDeleteDocument(doc.id, doc.fileId)} className="p-1.5 text-red-500 hover:text-red-700"><TrashIcon className="w-5 h-5"/></button>
+                                            <button onClick={() => handleViewDocument(doc)} title={t('view')} className="p-1.5 text-gray-500 hover:text-primary-600"><EyeIcon className="w-5 h-5"/></button>
+                                            <button onClick={() => handleDownloadDocument(doc)} title={t('download')} className="p-1.5 text-gray-500 hover:text-primary-600"><ArrowDownTrayIcon className="w-5 h-5"/></button>
+                                            <button onClick={() => handleDeleteDocument(doc.id, doc.fileId)} title={t('delete')} className="p-1.5 text-red-500 hover:text-red-700"><TrashIcon className="w-5 h-5"/></button>
                                         </div>
                                     </div>
                                 ))}
@@ -270,7 +314,7 @@ const PropertyDetails: React.FC<PropertyDetailsProps> = ({ propertyId, setView }
         <div className="relative pb-24">
             {isEditModalOpen && <PropertyFormModal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} propertyToEdit={property} />}
             {isDocModalOpen && <DocumentUploadModal isOpen={isDocModalOpen} onClose={() => setIsDocModalOpen(false)} propertyId={property.id} />}
-            {lightboxImages.length > 0 && <Lightbox images={lightboxImages} startIndex={0} onClose={() => setLightboxImages([])} />}
+            {lightboxImages.length > 0 && <Lightbox images={lightboxImages} startIndex={0} onClose={closeLightbox} />}
             
             {/* Header */}
             <div className="flex justify-between items-center mb-4">
@@ -286,8 +330,19 @@ const PropertyDetails: React.FC<PropertyDetailsProps> = ({ propertyId, setView }
             </div>
 
             {/* Property Image and Info */}
-            <div className="relative rounded-lg overflow-hidden h-64 mb-6 shadow-lg group cursor-pointer" onClick={() => (property.photos && property.photos.length > 0) && setLightboxImages(property.photos)}>
-                <img src={(property.photos && property.photos[0]) || 'https://via.placeholder.com/600x300'} alt={property.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+            {/* FIX: Replaced `property.photos` with `property.photoFileIds` and implemented logic to fetch images from IndexedDB for both the main image and the lightbox. */}
+            <div className="relative rounded-lg overflow-hidden h-64 mb-6 shadow-lg group cursor-pointer" onClick={openLightbox}>
+                {property.photoFileIds && property.photoFileIds.length > 0 ? (
+                    <ImageFromDb 
+                        fileId={property.photoFileIds[0]} 
+                        alt={property.name} 
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                ) : (
+                    <div className="w-full h-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                        <HomeIcon className="w-24 h-24 text-gray-400 dark:text-gray-500" />
+                    </div>
+                )}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent p-6 flex flex-col justify-end">
                      <div className="absolute top-4 right-4 bg-green-500 text-white text-xs font-bold px-3 py-1.5 rounded-full">
                         {property.status === PropertyStatus.VACANT ? t('statusVacant') : t('statusRented')}

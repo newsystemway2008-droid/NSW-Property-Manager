@@ -43,6 +43,21 @@ export enum InclusiveCharge {
   MAINTENANCE_CHARGES = 'Maintenance Charges',
 }
 
+export enum Theme {
+    LIGHT = 'light',
+    DARK = 'dark',
+    SYSTEM = 'system'
+}
+
+export interface Reminder {
+    id: string;
+    propertyId?: string;
+    tenantId?: string;
+    title: string;
+    dueDate: string;
+    isCompleted: boolean;
+}
+
 export interface Tenant {
   id: string;
   propertyId: string;
@@ -91,7 +106,7 @@ export interface Property {
   type: PropertyType;
   ownerId: string;
   status: PropertyStatus;
-  photos?: string[];
+  photoFileIds?: string[];
   expectedRent?: number;
   unitNumber?: string;
 }

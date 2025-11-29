@@ -3,12 +3,63 @@ import { useData } from '../contexts/DataContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { Property, PropertyType, PropertyStatus } from '../types';
 import { XMarkIcon, PhotoIcon, TrashIcon } from './icons';
+// FIX: Import IndexedDB utility functions to handle file storage.
+import { addFile, deleteFiles, getFile } from '../utils/db';
+
 
 interface PropertyFormModalProps {
     isOpen: boolean;
     onClose: () => void;
     propertyToEdit?: Property | null;
 }
+
+// FIX: Added a helper component to render photo previews from either a local File object or a fileId from IndexedDB.
+const PhotoPreview: React.FC<{
+    file?: File;
+    fileId?: string;
+    onRemove: () => void;
+}> = ({ file, fileId, onRemove }) => {
+    const [imageUrl, setImageUrl] = useState<string | null>(null);
+
+    useEffect(() => {
+        let isMounted = true;
+        let objectUrl: string | null = null;
+
+        const loadUrl = async () => {
+            if (file) {
+                objectUrl = URL.createObjectURL(file);
+                if (isMounted) setImageUrl(objectUrl);
+            } else if (fileId) {
+                const dbFile = await getFile(fileId);
+                if (dbFile && isMounted) {
+                    objectUrl = URL.createObjectURL(dbFile);
+                    setImageUrl(objectUrl);
+                }
+            }
+        };
+
+        loadUrl();
+
+        return () => {
+            isMounted = false;
+            if (objectUrl) {
+                URL.revokeObjectURL(objectUrl);
+            }
+        };
+    }, [file, fileId]);
+
+    if (!imageUrl) return null;
+
+    return (
+        <div className="relative group">
+            <img src={imageUrl} alt="Preview" className="h-24 w-full object-cover rounded-md" />
+            <button type="button" onClick={onRemove} className="absolute top-0 right-0 m-1 p-0.5 bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                <TrashIcon className="w-4 h-4" />
+            </button>
+        </div>
+    );
+};
+
 
 const PropertyFormModal: React.FC<PropertyFormModalProps> = ({ isOpen, onClose, propertyToEdit }) => {
     const { setProperties, owner } = useData();
@@ -19,10 +70,15 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({ isOpen, onClose, 
     const [unitNumber, setUnitNumber] = useState('');
     const [type, setType] = useState<PropertyType | ''>('');
     const [status, setStatus] = useState<PropertyStatus>(PropertyStatus.VACANT);
-    const [photos, setPhotos] = useState<string[]>([]);
     const [expectedRent, setExpectedRent] = useState('');
     const [error, setError] = useState('');
     const [isDragging, setIsDragging] = useState(false);
+
+    // FIX: Reworked state to handle file IDs and new File objects instead of base64 strings.
+    const [existingPhotoFileIds, setExistingPhotoFileIds] = useState<string[]>([]);
+    const [newPhotoFiles, setNewPhotoFiles] = useState<File[]>([]);
+    const [removedPhotoFileIds, setRemovedPhotoFileIds] = useState<string[]>([]);
+
 
     useEffect(() => {
         if (propertyToEdit) {
@@ -31,7 +87,8 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({ isOpen, onClose, 
             setUnitNumber(propertyToEdit.unitNumber || '');
             setType(propertyToEdit.type);
             setStatus(propertyToEdit.status);
-            setPhotos(propertyToEdit.photos || []);
+            // FIX: Use `photoFileIds` instead of the non-existent `photos` property.
+            setExistingPhotoFileIds(propertyToEdit.photoFileIds || []);
             setExpectedRent(propertyToEdit.expectedRent?.toString() || '');
         } else {
             // Reset form for new property
@@ -39,25 +96,18 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({ isOpen, onClose, 
         }
     }, [propertyToEdit, isOpen]);
 
+    // FIX: Handle new files as File objects, not base64 strings.
     const handleFileChange = (files: FileList | null) => {
         if (!files) return;
-        const newPhotos: string[] = [];
+        const newPhotos: File[] = [];
         const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
         
         Array.from(files).forEach(file => {
             if (allowedTypes.includes(file.type)) {
-                const reader = new FileReader();
-                reader.onload = () => {
-                    if (typeof reader.result === 'string') {
-                        newPhotos.push(reader.result);
-                        if (newPhotos.length === files.length) {
-                             setPhotos(prev => [...prev, ...newPhotos]);
-                        }
-                    }
-                };
-                reader.readAsDataURL(file);
+                newPhotos.push(file);
             }
         });
+        setNewPhotoFiles(prev => [...prev, ...newPhotos]);
     };
 
     const handleDragEnter = (e: React.DragEvent<HTMLDivElement>) => { e.preventDefault(); e.stopPropagation(); setIsDragging(true); };
@@ -70,24 +120,38 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({ isOpen, onClose, 
         handleFileChange(e.dataTransfer.files);
     };
     
-    const removePhoto = (index: number) => {
-        setPhotos(prev => prev.filter((_, i) => i !== index));
+    // FIX: Reworked photo removal logic to handle both existing files (by ID) and newly added files.
+    const removeNewPhoto = (index: number) => {
+        setNewPhotoFiles(prev => prev.filter((_, i) => i !== index));
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const removeExistingPhoto = (fileId: string) => {
+        setExistingPhotoFileIds(prev => prev.filter(id => id !== fileId));
+        setRemovedPhotoFileIds(prev => [...prev, fileId]);
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!name || !address || !type) {
             setError('Please fill out all required fields.');
             return;
         }
 
-        const propertyData: Omit<Property, 'id' | 'ownerId'> & { id?: string } = {
+        // FIX: Handle file operations with IndexedDB before saving property data.
+        if (removedPhotoFileIds.length > 0) {
+            await deleteFiles(removedPhotoFileIds);
+        }
+        const newFileIds = await Promise.all(newPhotoFiles.map(file => addFile(file)));
+        const finalPhotoFileIds = [...existingPhotoFileIds, ...newFileIds];
+
+        // FIX: Use `photoFileIds` which exists on the Property type, instead of `photos`. This resolves the type error.
+        const propertyData = {
             name,
             address,
             unitNumber: unitNumber || undefined,
             type,
             status,
-            photos,
+            photoFileIds: finalPhotoFileIds,
             expectedRent: expectedRent ? parseFloat(expectedRent) : undefined,
         };
 
@@ -112,9 +176,11 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({ isOpen, onClose, 
         setUnitNumber('');
         setType('');
         setStatus(PropertyStatus.VACANT);
-        setPhotos([]);
         setExpectedRent('');
         setError('');
+        setExistingPhotoFileIds([]);
+        setNewPhotoFiles([]);
+        setRemovedPhotoFileIds([]);
         if (shouldTriggerCallback) {
             onClose();
         }
@@ -172,17 +238,16 @@ const PropertyFormModal: React.FC<PropertyFormModalProps> = ({ isOpen, onClose, 
                             </div>
                         </div>
 
-                        {photos.length > 0 && (
+                        {(existingPhotoFileIds.length > 0 || newPhotoFiles.length > 0) && (
                             <div>
                                 <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('photosPreview')}</h3>
                                 <div className="mt-2 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
-                                    {photos.map((photo, index) => (
-                                        <div key={index} className="relative group">
-                                            <img src={photo} alt={`Preview ${index}`} className="h-24 w-full object-cover rounded-md" />
-                                            <button type="button" onClick={() => removePhoto(index)} className="absolute top-0 right-0 m-1 p-0.5 bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <TrashIcon className="w-4 h-4" />
-                                            </button>
-                                        </div>
+                                    {/* FIX: Render previews for both existing and new photos using the helper component. */}
+                                    {existingPhotoFileIds.map((fileId) => (
+                                        <PhotoPreview key={fileId} fileId={fileId} onRemove={() => removeExistingPhoto(fileId)} />
+                                    ))}
+                                    {newPhotoFiles.map((file, index) => (
+                                        <PhotoPreview key={index} file={file} onRemove={() => removeNewPhoto(index)} />
                                     ))}
                                 </div>
                             </div>

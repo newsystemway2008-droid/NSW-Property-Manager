@@ -5,12 +5,41 @@ import { Property, PropertyType, PropertyStatus } from '../types';
 import { HomeIcon, BuildingStorefrontIcon, MapPinIcon, BuildingOfficeIcon, DotsVerticalIcon } from '../components/icons';
 import { View } from '../App';
 import PropertyFormModal from '../components/PropertyFormModal';
-import { deleteFiles } from '../utils/db';
+// FIX: Import getFile to fetch images from IndexedDB, and deleteFiles for cascade deletion.
+import { deleteFiles, getFile } from '../utils/db';
 
 
 interface PropertiesListProps {
     setView: (view: View) => void;
 }
+
+// FIX: Added a helper component to asynchronously load and display an image from IndexedDB.
+const ImageFromDb: React.FC<{ fileId: string; alt: string; className: string }> = ({ fileId, alt, className }) => {
+    const [imageUrl, setImageUrl] = useState<string>('https://via.placeholder.com/400x200');
+
+    useEffect(() => {
+        let isMounted = true;
+        let objectUrl: string | undefined;
+
+        const fetchImage = async () => {
+            const file = await getFile(fileId);
+            if (isMounted && file) {
+                objectUrl = URL.createObjectURL(file);
+                setImageUrl(objectUrl);
+            }
+        };
+        fetchImage();
+        return () => { 
+            isMounted = false; 
+            if (objectUrl) {
+                URL.revokeObjectURL(objectUrl);
+            }
+        };
+    }, [fileId]);
+
+    return <img src={imageUrl} alt={alt} className={className} />;
+};
+
 
 const PropertiesList: React.FC<PropertiesListProps> = ({ setView }) => {
     const { properties, setProperties, transactions, setTransactions, documents, setDocuments, tenants, setTenants } = useData();
@@ -63,16 +92,21 @@ const PropertiesList: React.FC<PropertiesListProps> = ({ setView }) => {
 
     const handleDelete = async (propertyId: string) => {
         if (window.confirm(`${t('areYouSure')}\n${t('confirmDelete')}`)) {
+            const propertyToDelete = properties.find(p => p.id === propertyId);
+            if (!propertyToDelete) return;
+
             // Find all related data for cascade delete
             const propertyTenants = tenants.filter(t => t.propertyId === propertyId);
             const propertyDocs = documents.filter(doc => doc.propertyId === propertyId);
             const tenantDocs = documents.filter(doc => propertyTenants.some(pt => pt.id === doc.tenantId));
             
             const docFileIdsToDelete = [...propertyDocs, ...tenantDocs].map(d => d.fileId);
+            const photoFileIdsToDelete = propertyToDelete.photoFileIds || [];
 
             // Delete files from IndexedDB
-            if (docFileIdsToDelete.length > 0) {
-                await deleteFiles(docFileIdsToDelete);
+            const allFileIdsToDelete = [...docFileIdsToDelete, ...photoFileIdsToDelete];
+            if (allFileIdsToDelete.length > 0) {
+                await deleteFiles(allFileIdsToDelete);
             }
 
             // Delete records from state
@@ -113,12 +147,20 @@ const PropertiesList: React.FC<PropertiesListProps> = ({ setView }) => {
                     {properties.map(property => (
                         <div key={property.id} className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden group">
                             <div className="relative">
-                                <img 
-                                    onClick={() => setView({ page: 'propertyDetail', propertyId: property.id })}
-                                    src={(property.photos && property.photos[0]) || 'https://via.placeholder.com/400x200'} 
-                                    alt={property.name} 
-                                    className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300 cursor-pointer"
-                                />
+                                {/* FIX: Use `photoFileIds` from the Property type and the `ImageFromDb` component to render images from IndexedDB. This replaces the incorrect use of a non-existent `photos` property. */}
+                                <div onClick={() => setView({ page: 'propertyDetail', propertyId: property.id })} className="cursor-pointer">
+                                    {property.photoFileIds && property.photoFileIds.length > 0 ? (
+                                        <ImageFromDb 
+                                            fileId={property.photoFileIds[0]}
+                                            alt={property.name}
+                                            className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
+                                        />
+                                    ) : (
+                                        <div className="w-full h-48 bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                                            <HomeIcon className="w-16 h-16 text-gray-400 dark:text-gray-500" />
+                                        </div>
+                                    )}
+                                </div>
                                 <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-t from-black/60 to-transparent pointer-events-none"></div>
                                 
                                 {/* Actions Menu Button */}

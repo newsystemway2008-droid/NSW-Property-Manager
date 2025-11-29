@@ -16,6 +16,10 @@ const AddTenant: React.FC<AddTenantProps> = ({ propertyId, tenantId, setView }) 
     const { tenants, setTenants, properties, setProperties, documents, setDocuments } = useData();
     const { t } = useLanguage();
 
+    const isEditMode = !!tenantId;
+    const currentTenant = isEditMode ? tenants.find(t => t.id === tenantId) : null;
+    
+    const [selectedPropertyId, setSelectedPropertyId] = useState(propertyId || currentTenant?.propertyId || '');
     const [tenantData, setTenantData] = useState<Partial<Tenant>>({});
     const [newDocs, setNewDocs] = useState<File[]>([]);
     const [docsToRemove, setDocsToRemove] = useState<Document[]>([]);
@@ -23,9 +27,6 @@ const AddTenant: React.FC<AddTenantProps> = ({ propertyId, tenantId, setView }) 
     const [error, setError] = useState('');
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const isEditMode = !!tenantId;
-    const currentTenant = isEditMode ? tenants.find(t => t.id === tenantId) : null;
-    const currentPropertyId = propertyId || currentTenant?.propertyId;
     const tenantDocuments = documents.filter(d => d.tenantId === tenantId);
     
     useEffect(() => {
@@ -87,7 +88,7 @@ const AddTenant: React.FC<AddTenantProps> = ({ propertyId, tenantId, setView }) 
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!tenantData.name || !tenantData.mobile || !tenantData.leaseStartDate || !tenantData.leaseEndDate || !tenantData.leaseAmount || !tenantData.paymentDueDay || !currentPropertyId) {
+        if (!tenantData.name || !tenantData.mobile || !tenantData.leaseStartDate || !tenantData.leaseEndDate || !tenantData.leaseAmount || !tenantData.paymentDueDay || !selectedPropertyId) {
             setError('Please fill in all required fields.');
             return;
         }
@@ -110,7 +111,7 @@ const AddTenant: React.FC<AddTenantProps> = ({ propertyId, tenantId, setView }) 
 
         // 2. Handle Tenant data
         if (isEditMode && currentTenant) {
-            const updatedTenant = { ...currentTenant, ...tenantData };
+            const updatedTenant = { ...currentTenant, ...tenantData, propertyId: selectedPropertyId };
             setTenants(prev => prev.map(t => t.id === tenantId ? updatedTenant : t));
             
             // Update documents state
@@ -122,7 +123,7 @@ const AddTenant: React.FC<AddTenantProps> = ({ propertyId, tenantId, setView }) 
             const newTenant: Tenant = {
                 ...tenantData,
                 id: newTenantId,
-                propertyId: currentPropertyId,
+                propertyId: selectedPropertyId,
             } as Tenant;
             
             uploadedDocs.forEach(d => d.tenantId = newTenantId); // Assign final tenantId
@@ -132,7 +133,7 @@ const AddTenant: React.FC<AddTenantProps> = ({ propertyId, tenantId, setView }) 
             
             // Update property status
             setProperties(prev => prev.map(p => 
-                p.id === currentPropertyId ? { ...p, status: PropertyStatus.RENTED } : p
+                p.id === selectedPropertyId ? { ...p, status: PropertyStatus.RENTED } : p
             ));
         }
         
@@ -140,7 +141,11 @@ const AddTenant: React.FC<AddTenantProps> = ({ propertyId, tenantId, setView }) 
     };
 
     const handleBack = () => {
-        setView({ page: 'propertyDetail', propertyId: currentPropertyId! });
+        if (propertyId || isEditMode) {
+            setView({ page: 'propertyDetail', propertyId: selectedPropertyId! });
+        } else {
+            setView({ page: 'dashboard' });
+        }
     };
 
     const formTitle = isEditMode ? t('editTenant') : t('addTenant');
@@ -156,6 +161,23 @@ const AddTenant: React.FC<AddTenantProps> = ({ propertyId, tenantId, setView }) 
 
             <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-md space-y-6">
                 {error && <p className="text-red-500 bg-red-100 dark:bg-red-900/50 p-3 rounded-md text-sm">{error}</p>}
+                
+                 {/* Property Selector (only if not in edit mode and no propertyId) */}
+                {!isEditMode && !propertyId && (
+                    <div>
+                        <label htmlFor="property" className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('property')}</label>
+                        <select
+                            id="property"
+                            value={selectedPropertyId}
+                            onChange={(e) => setSelectedPropertyId(e.target.value)}
+                            className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                            required
+                        >
+                            <option value="" disabled>{t('selectProperty')}</option>
+                            {properties.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                        </select>
+                    </div>
+                )}
                 
                 {/* Photo Upload and basic info */}
                 <div>

@@ -1,7 +1,7 @@
-
-import React, { createContext, useContext } from 'react';
+import React, { createContext, useContext, useCallback } from 'react';
 import useLocalStorage from '../hooks/useLocalStorage';
-import { Property, Transaction, Document, Owner, Tenant } from '../types';
+import { Property, Transaction, Document, Owner, Tenant, Reminder } from '../types';
+import { clearDB } from '../utils/db';
 
 interface DataContextType {
   properties: Property[];
@@ -14,6 +14,9 @@ interface DataContextType {
   setOwner: React.Dispatch<React.SetStateAction<Owner>>;
   tenants: Tenant[];
   setTenants: React.Dispatch<React.SetStateAction<Tenant[]>>;
+  reminders: Reminder[];
+  setReminders: React.Dispatch<React.SetStateAction<Reminder[]>>;
+  clearAllData: () => Promise<void>;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -32,6 +35,23 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [documents, setDocuments] = useLocalStorage<Document[]>('documents', []);
   const [tenants, setTenants] = useLocalStorage<Tenant[]>('tenants', []);
   const [owner, setOwner] = useLocalStorage<Owner>('owner', initialOwner);
+  const [reminders, setReminders] = useLocalStorage<Reminder[]>('reminders', []);
+
+  const clearAllData = useCallback(async () => {
+    // Clear all local storage keys
+    setProperties([]);
+    setTransactions([]);
+    setDocuments([]);
+    setTenants([]);
+    setOwner(initialOwner);
+    setReminders([]);
+
+    // Clear IndexedDB
+    await clearDB();
+    
+    // You might want to reload the page to ensure a clean state
+    window.location.reload();
+  }, [setProperties, setTransactions, setDocuments, setTenants, setOwner, setReminders]);
 
   return (
     <DataContext.Provider value={{ 
@@ -39,7 +59,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         transactions, setTransactions, 
         documents, setDocuments,
         tenants, setTenants,
-        owner, setOwner
+        owner, setOwner,
+        reminders, setReminders,
+        clearAllData
     }}>
       {children}
     </DataContext.Provider>

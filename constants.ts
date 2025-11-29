@@ -21,6 +21,8 @@ export const translations = {
     // Sidebar & Header
     dashboard: 'Dashboard',
     properties: 'Properties',
+    reminders: 'Reminders',
+    settings: 'Settings',
     ownerProfile: 'Owner Profile',
     adminPanel: 'Admin Panel',
     language: 'Language',
@@ -133,8 +135,8 @@ export const translations = {
     tenantNameLabel: 'Name',
     mobile: 'Mobile',
     emailOptional: 'Email Id (Optional)',
-    leaseStartDate: 'Did Start Date',
-    leaseEndDate: 'Did End Date',
+    leaseStartDate: 'Lease Start Date',
+    leaseEndDate: 'Lease End Date',
     leaseTerm: 'Lease Term (e.g., 12 months)',
     renewalDate: 'Renewal Date',
     leaseAmount: 'Rent Amount',
@@ -149,6 +151,22 @@ export const translations = {
     tenantPhoto: 'Tenant Photo',
     uploadDidDocument: 'Upload DID Document',
     didDocumentsPreview: 'DID Documents Preview',
+
+    // Reminders
+    remindersTitle: 'Reminders',
+    addReminder: 'Add Reminder',
+    noReminders: 'No reminders set.',
+
+    // Settings
+    settingsTitle: 'Settings',
+    appTheme: 'App Theme',
+    themeLight: 'Light',
+    themeDark: 'Dark',
+    themeSystem: 'System',
+    dataManagement: 'Data Management',
+    clearAllData: 'Clear All Data',
+    clearDataConfirmation: 'This will permanently delete all your data, including properties, transactions, and documents. This action cannot be undone. Are you sure you want to proceed?',
+    dataCleared: 'All application data has been cleared.',
 
 
     // Owner Profile
@@ -190,6 +208,8 @@ export const translations = {
     // Sidebar & Header
     dashboard: 'ড্যাশবোর্ড',
     properties: 'সম্পত্তি',
+    reminders: 'অনুস্মারক',
+    settings: 'সেটিংস',
     ownerProfile: 'মালিকের প্রোফাইল',
     adminPanel: 'অ্যাডমিন প্যানেল',
     language: 'ভাষা',
@@ -301,8 +321,8 @@ export const translations = {
     tenantNameLabel: 'নাম',
     mobile: 'মোবাইল',
     emailOptional: 'ইমেইল আইডি (ঐচ্ছিক)',
-    leaseStartDate: 'শুরুর তারিখ',
-    leaseEndDate: 'শেষের তারিখ',
+    leaseStartDate: 'লীজ শুরুর তারিখ',
+    leaseEndDate: 'লীজ শেষের তারিখ',
     leaseTerm: 'লীজের মেয়াদ (যেমন, ১২ মাস)',
     renewalDate: 'নবায়নের তারিখ',
     leaseAmount: 'ভাড়ার পরিমাণ',
@@ -317,6 +337,22 @@ export const translations = {
     tenantPhoto: 'ভাড়াটিয়ার ছবি',
     uploadDidDocument: 'ডিআইডি ডকুমেন্ট আপলোড করুন',
     didDocumentsPreview: 'ডিআইডি ডকুমেন্টের প্রিভিউ',
+
+    // Reminders
+    remindersTitle: 'অনুস্মারক',
+    addReminder: 'অনুস্মারক যোগ করুন',
+    noReminders: 'কোনো অনুস্মারক সেট করা নেই।',
+
+    // Settings
+    settingsTitle: 'সেটিংস',
+    appTheme: 'অ্যাপ থিম',
+    themeLight: 'লাইট',
+    themeDark: 'ডার্ক',
+    themeSystem: 'সিস্টেম',
+    dataManagement: 'ডেটা ম্যানেজমেন্ট',
+    clearAllData: 'সমস্ত ডেটা সাফ করুন',
+    clearDataConfirmation: 'এটি আপনার সমস্ত ডেটা স্থায়ীভাবে মুছে ফেলবে, যার মধ্যে সম্পত্তি, লেনদেন এবং নথি রয়েছে। এই কাজটি পূর্বাবস্থায় ফেরানো যাবে না। আপনি কি নিশ্চিতভাবে এগিয়ে যেতে চান?',
+    dataCleared: 'সমস্ত অ্যাপ্লিকেশন ডেটা সাফ করা হয়েছে।',
     
     // Owner Profile
     ownerProfileTitle: 'মালিকের তথ্য',

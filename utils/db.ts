@@ -42,3 +42,8 @@ export const deleteFiles = async (fileIds: string[]): Promise<void> => {
     const tx = db.transaction(STORE_NAME, 'readwrite');
     await Promise.all([...fileIds.map(id => tx.store.delete(id)), tx.done]);
 };
+
+export const clearDB = async (): Promise<void> => {
+    const db = await initDB();
+    await db.clear(STORE_NAME);
+};

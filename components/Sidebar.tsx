@@ -1,9 +1,8 @@
-
 import React from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { View } from '../App';
 import { UserRole } from '../types';
-import { HomeIcon, BuildingStorefrontIcon, UserCircleIcon, ShieldCheckIcon, ChartBarIcon } from './icons';
+import { HomeIcon, BuildingStorefrontIcon, UserCircleIcon, ShieldCheckIcon, ChartBarIcon, BellIcon, Cog6ToothIcon } from './icons';
 import { useData } from '../contexts/DataContext';
 
 interface SidebarProps {
@@ -21,6 +20,8 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, setView, currentUserRole
     const navItems = [
         { id: 'dashboard', label: t('dashboard'), icon: <ChartBarIcon className="w-5 h-5" />, role: [UserRole.USER, UserRole.ADMIN] },
         { id: 'properties', label: t('properties'), icon: <HomeIcon className="w-5 h-5" />, role: [UserRole.USER, UserRole.ADMIN] },
+        { id: 'reminders', label: t('reminders'), icon: <BellIcon className="w-5 h-5" />, role: [UserRole.USER, UserRole.ADMIN] },
+        { id: 'settings', label: t('settings'), icon: <Cog6ToothIcon className="w-5 h-5" />, role: [UserRole.USER, UserRole.ADMIN] },
         { id: 'profile', label: t('ownerProfile'), icon: <UserCircleIcon className="w-5 h-5" />, role: [UserRole.USER, UserRole.ADMIN] },
         { id: 'admin', label: t('adminPanel'), icon: <ShieldCheckIcon className="w-5 h-5" />, role: [UserRole.ADMIN] },
     ];

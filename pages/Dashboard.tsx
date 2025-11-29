@@ -1,13 +1,34 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useData } from '../contexts/DataContext';
 import { useLanguage } from '../contexts/LanguageContext';
-import { PropertyStatus, PropertyType, TransactionType } from '../types';
+import { Property, PropertyStatus, PropertyType, TransactionType } from '../types';
 import { View } from '../App';
-import { ArrowTrendingUpIcon, ArrowTrendingDownIcon, BuildingStorefrontIcon, DocumentDuplicateIcon, MapPinIcon, BuildingOfficeIcon, HomeIcon } from '../components/icons';
+import { ArrowTrendingUpIcon, ArrowTrendingDownIcon, BuildingStorefrontIcon, DocumentDuplicateIcon, MapPinIcon, BuildingOfficeIcon, HomeIcon, UserPlusIcon } from '../components/icons';
+import { getFile } from '../utils/db';
 
 interface DashboardProps {
     setView: (view: View) => void;
 }
+
+const ImageFromDb: React.FC<{ fileId: string; alt: string; className: string }> = ({ fileId, alt, className }) => {
+    const [imageUrl, setImageUrl] = useState<string>('https://via.placeholder.com/400x200');
+
+    useEffect(() => {
+        let isMounted = true;
+        const fetchImage = async () => {
+            const file = await getFile(fileId);
+            if (isMounted && file) {
+                const url = URL.createObjectURL(file);
+                setImageUrl(url);
+                return () => URL.revokeObjectURL(url);
+            }
+        };
+        fetchImage();
+        return () => { isMounted = false; };
+    }, [fileId]);
+
+    return <img src={imageUrl} alt={alt} className={className} />;
+};
 
 const Dashboard: React.FC<DashboardProps> = ({ setView }) => {
     const { properties, transactions, owner } = useData();
@@ -102,10 +123,11 @@ const Dashboard: React.FC<DashboardProps> = ({ setView }) => {
             {/* Manage Properties Section */}
             <div>
                 <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-4">{t('manageProperties')}</h2>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <ManagementCard icon={<BuildingStorefrontIcon className="w-8 h-8 text-indigo-500"/>} label={t('addProperty')} onClick={() => setView({ page: 'properties' })} />
                     <ManagementCard icon={<ArrowTrendingUpIcon className="w-8 h-8 text-indigo-500"/>} label={t('addIncome')} onClick={() => setView({ page: 'addTransaction', type: TransactionType.INCOME })} />
                     <ManagementCard icon={<ArrowTrendingDownIcon className="w-8 h-8 text-indigo-500"/>} label={t('addExpense')} onClick={() => setView({ page: 'addTransaction', type: TransactionType.EXPENSE })} />
+                    <ManagementCard icon={<UserPlusIcon className="w-8 h-8 text-indigo-500"/>} label={t('addTenant')} onClick={() => setView({ page: 'addTenant' })} />
                 </div>
             </div>
 
@@ -127,11 +149,19 @@ const Dashboard: React.FC<DashboardProps> = ({ setView }) => {
                         {properties.slice(0, 2).map(property => (
                              <div key={property.id} onClick={() => setView({ page: 'propertyDetail', propertyId: property.id })} className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden group cursor-pointer">
                                 <div className="relative">
-                                    <img 
-                                        src={(property.photos && property.photos[0]) || 'https://via.placeholder.com/400x200'} 
-                                        alt={property.name} 
-                                        className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
-                                    />
+                                    {property.photoFileIds && property.photoFileIds.length > 0 ? (
+                                        <ImageFromDb 
+                                            fileId={property.photoFileIds[0]} 
+                                            alt={property.name}
+                                            className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
+                                        />
+                                    ) : (
+                                        <img 
+                                            src='https://via.placeholder.com/400x200' 
+                                            alt={property.name} 
+                                            className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
+                                        />
+                                    )}
                                     <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-t from-black/60 to-transparent"></div>
                                     <div className="absolute top-3 right-3 bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-full">
                                         {property.status === PropertyStatus.VACANT ? t('statusVacant') : t('statusRented')}
